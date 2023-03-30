@@ -3,6 +3,10 @@ package com.example.santaapi.service.participant;
 import com.example.santaapi.dto.participant.CreateUpdateParticipantDto;
 import com.example.santaapi.dto.participant.FullParticipantDto;
 import com.example.santaapi.dto.participant.WithoutRecipientParticipantDto;
+import com.example.santaapi.entity.GroupEntity;
+import com.example.santaapi.entity.ParticipantEntity;
+import com.example.santaapi.exception.BadRequestException;
+import com.example.santaapi.exception.ConflictException;
 import com.example.santaapi.exception.NotFoundException;
 import com.example.santaapi.mapper.ParticipantMapper;
 import com.example.santaapi.repository.GroupRepository;
@@ -11,8 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -23,9 +29,9 @@ public class ParticipantServiceImpl implements ParticipantService {
 
     @Transactional
     @Override
-    public Long addParticipantToGroup(CreateUpdateParticipantDto dto, Long groupId) throws NotFoundException {
+    public Long addParticipantToGroup(CreateUpdateParticipantDto dto, Long groupId) throws BadRequestException {
         var group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new NotFoundException("Группы с таким id не существует"));
+                .orElseThrow(() -> new BadRequestException("Группы с таким id не существует"));
 
         var entity = ParticipantMapper.newParticipantToEntity(dto, group);
 
@@ -43,15 +49,15 @@ public class ParticipantServiceImpl implements ParticipantService {
 
     @Transactional
     @Override
-    public void deleteParticipantFromGroup(Long groupId, Long participantId) throws NotFoundException {
+    public void deleteParticipantFromGroup(Long groupId, Long participantId) throws BadRequestException {
         var group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new NotFoundException("Группы с таким id не существует"));
+                .orElseThrow(() -> new BadRequestException("Группы с таким id не существует"));
 
         var participant = participantRepository.findById(participantId)
-                .orElseThrow(() -> new NotFoundException("Участника с таким id не существует"));
+                .orElseThrow(() -> new BadRequestException("Участника с таким id не существует"));
 
         if (!groupId.equals(participant.getGroup().getId())) {
-            throw new NotFoundException("Участника с таким id не существует");
+            throw new BadRequestException("Участника с таким id не существует");
         } else {
             var list = group.getParticipants();
 
@@ -74,22 +80,68 @@ public class ParticipantServiceImpl implements ParticipantService {
 
     @Transactional
     @Override
-    public List<FullParticipantDto> tossParticipants(Long groupId) {
-        return null;
+    public List<FullParticipantDto> tossParticipants(Long groupId) throws ConflictException, BadRequestException {
+        var group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new BadRequestException("Группы с таким id не существует"));
+
+        var participants = group.getParticipants();
+
+        if (canBeTossed(group)) {
+
+
+            for (int i = 0; i < participants.size(); i++) {
+                addParticipantRecipient(participants, i);
+            }
+
+            var list = participantRepository.findAllByGroup_Id(groupId);
+
+            group.setParticipants(list);
+            groupRepository.save(group);
+
+            List<FullParticipantDto> result = new ArrayList<>();
+            for (ParticipantEntity entity : list) {
+                result.add(ParticipantMapper.entityToFullDto(entity));
+            }
+            return result;
+        } else {
+            throw new ConflictException("Группа с id: " + groupId + " слишком мала");
+
+        }
     }
 
+    @Transactional
     @Override
-    public WithoutRecipientParticipantDto getParticipantRecipient(Long groupId, Long participantId) throws NotFoundException {
+    public WithoutRecipientParticipantDto getParticipantRecipient(Long groupId, Long participantId) throws BadRequestException {
         groupRepository.findById(groupId)
-                .orElseThrow(() -> new NotFoundException("Группы с таким id не существует"));
+                .orElseThrow(() -> new BadRequestException("Группы с таким id не существует"));
 
         var participant = participantRepository.findById(participantId)
-                .orElseThrow(() -> new NotFoundException("Участника с таким id не существует"));
+                .orElseThrow(() -> new BadRequestException("Участника с таким id не существует"));
 
         if (!groupId.equals(participant.getGroup().getId())) {
-            throw new NotFoundException("Участника с таким id не существует");
+            throw new BadRequestException("Участника с таким id не существует");
         } else {
             return ParticipantMapper.entityToSmallDto(participant.getRecipient());
         }
+    }
+
+    @Transactional
+    void addParticipantRecipient(List<ParticipantEntity> participants, int index) {
+
+        if (index <= participants.size() - 2) {
+            participants.get(index).setRecipient(participants.get(index + 1));
+        } else {
+            participants.get(index).setRecipient(participants.get(0));
+        }
+
+        participantRepository.save(participants.get(index));
+    }
+
+    private Boolean checkIfParticipantHasRecipient(ParticipantEntity entity) {
+        return entity.getRecipient() != null;
+    }
+
+    private Boolean canBeTossed(GroupEntity group) {
+        return group.getParticipants().size() >= 3;
     }
 }

@@ -25,6 +25,6 @@ public class GroupEntity {
     @Column(name = "description")
     private String description;
 
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany()
     private List<ParticipantEntity> participants;
 }

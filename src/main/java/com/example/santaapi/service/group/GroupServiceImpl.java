@@ -28,8 +28,8 @@ public class GroupServiceImpl implements GroupService {
         var entity = groupRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Такой группы не существует"));
 
-        var participants = participantRepository.findAllByGroup_Id(id);
-        entity.setParticipants(participants);
+//        var participants = participantRepository.findAllByGroup_Id(id);
+//        entity.setParticipants(participants);
 
         return GroupMapper.entityToFullDto(entity);
     }

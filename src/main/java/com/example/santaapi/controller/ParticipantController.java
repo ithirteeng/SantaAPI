@@ -45,4 +45,13 @@ public class ParticipantController {
         }
     }
 
+    @PostMapping("/group/{id}/toss")
+    public ResponseEntity<?> createParticipantInGroup(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(service.tossParticipants(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }
