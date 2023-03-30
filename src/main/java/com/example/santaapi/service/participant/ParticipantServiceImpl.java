@@ -2,7 +2,7 @@ package com.example.santaapi.service.participant;
 
 import com.example.santaapi.dto.participant.CreateUpdateParticipantDto;
 import com.example.santaapi.dto.participant.FullParticipantDto;
-import com.example.santaapi.entity.ParticipantEntity;
+import com.example.santaapi.dto.participant.WithoutRecipientParticipantDto;
 import com.example.santaapi.exception.NotFoundException;
 import com.example.santaapi.mapper.ParticipantMapper;
 import com.example.santaapi.repository.GroupRepository;
@@ -76,5 +76,20 @@ public class ParticipantServiceImpl implements ParticipantService {
     @Override
     public List<FullParticipantDto> tossParticipants(Long groupId) {
         return null;
+    }
+
+    @Override
+    public WithoutRecipientParticipantDto getParticipantRecipient(Long groupId, Long participantId) throws NotFoundException {
+        groupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("Группы с таким id не существует"));
+
+        var participant = participantRepository.findById(participantId)
+                .orElseThrow(() -> new NotFoundException("Участника с таким id не существует"));
+
+        if (!groupId.equals(participant.getGroup().getId())) {
+            throw new NotFoundException("Участника с таким id не существует");
+        } else {
+            return ParticipantMapper.entityToSmallDto(participant.getRecipient());
+        }
     }
 }
